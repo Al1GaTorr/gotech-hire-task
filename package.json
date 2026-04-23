@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "@nestjs/config": "^4.0.4",
+    "class-validator": "^0.15.1"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0"
+  }
+}
