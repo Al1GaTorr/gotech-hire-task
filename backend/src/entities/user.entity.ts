@@ -1,18 +1,30 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
+import { Exclude } from 'class-transformer';
+
+export enum UserRole {
+  USER = 'user',
+  ADMIN = 'admin',
+}
 
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Index({ unique: true }) 
   @Column({ unique: true })
-  username: string; // should have @Index() for query performance
+  username: string;
 
+  @Exclude() 
   @Column()
-  password: string; // should have @Exclude() to prevent accidental exposure
+  password: string;
 
-  @Column({ default: 'user' })
-  role: string; // should be an enum
+  @Column({
+    type: 'enum',
+    enum: UserRole,
+    default: UserRole.USER,
+  })
+  role: UserRole; 
 
   @CreateDateColumn()
   createdAt: Date;

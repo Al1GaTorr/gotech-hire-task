@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Body, Param } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { ChatService } from './chat.service';
+import { CreateUserDto } from './dto/create-user.dto';
 
 @Controller()
 export class AppController {
@@ -10,16 +11,8 @@ export class AppController {
   ) {}
 
   @Post('auth/register')
-  async register(@Body() body: any) {
-    const { username, password } = body;
-    if (!username || !password) {
-      return { error: 'Username and password required' };
-    }
-    // business logic directly in controller
-    if (username.length < 3) {
-      return { error: 'Username too short' };
-    }
-    return this.authService.register(username, password);
+  async register(@Body() createUserDto: CreateUserDto) {
+    return this.authService.register(createUserDto.username, createUserDto.password);
   }
 
   @Post('auth/login')
@@ -34,7 +27,6 @@ export class AppController {
 
   @Get('users')
   async getUsers() {
-    // returns password hashes - major security issue
-    return this.chatService['userRepository'].find();
+    return this.chatService.findAllPublicUsers();
   }
 }

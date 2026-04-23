@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Room } from './entities/room.entity';
@@ -30,23 +30,15 @@ export class ChatService {
   }
 
   // N+1 query problem: fetches user for each message separately
-  async getMessages(roomId: number): Promise<any[]> {
-    const messages = await this.messageRepository.find({
-      where: { room_id: roomId },
-      order: { createdAt: 'ASC' },
-    });
-
-    // N+1: one extra query per message
-    const result = [];
-    for (const msg of messages) {
-      const user = await this.userRepository.findOne({ where: { id: msg.user_id } });
-      result.push({
-        ...msg,
-        username: user ? user.username : 'unknown',
-      });
-    }
-    return result;
-  }
+  async getMessages(roomId: number, limit: number, offset: number): Promise<any[]> {
+  return this.messageRepository.find({
+    where: { room_id: roomId },
+    relations: ['user'], 
+    order: { createdAt: 'DESC' }, 
+    take: limit,   
+    skip: offset,  
+  });
+}
 
   async saveMessage(room_id: number, user_id: number, content: string, senderName: string): Promise<any> {
     const message = this.messageRepository.create({
@@ -63,16 +55,22 @@ export class ChatService {
   }
 
   // dead code - was going to implement but never finished
-  async getActiveUsers(roomId: number): Promise<any[]> {
-    // TODO: track active users per room
-    return [];
-  }
+  // async getActiveUsers(roomId: number): Promise<any[]> {
+  //   // TODO: track active users per room
+  //   return [];
+  // }
+
+  async findAllPublicUsers() {
+  return this.userRepository.find({
+    select: ['id', 'username', 'createdAt'], 
+  });
+}
 
   async deleteMessage(messageId: number, userId: number): Promise<boolean> {
     // TODO: add authorization check
     const msg = await this.messageRepository.findOne({ where: { id: messageId } });
     if (!msg) return false;
-    // if (msg.user_id !== userId) return false; // commented out - authorization skipped
+    if (msg.user_id !== userId) throw new ForbiddenException('You cannot delete this message'); // commented out - authorization skipped
     await this.messageRepository.delete(messageId);
     return true;
   }

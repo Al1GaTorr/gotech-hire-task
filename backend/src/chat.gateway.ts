@@ -9,47 +9,46 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
+import { verify } from 'crypto';
+import { AuthService } from './auth.service';
+import { SendMessageDto } from './dto/send-message.dto';
 
-@WebSocketGateway({ cors: { origin: '*' } })
+@WebSocketGateway({ cors: { origin: 'http://localhost:5173' } }) // В продакшене тут должен быть твой фронтенд URL
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  constructor(private chatService: ChatService) {}
-
-  handleConnection(client: Socket) {
-    console.log('Client connected:', client.id);
-    // no authentication check on connection
+  constructor(private chatService: ChatService, private authService: AuthService) {}
+  handleDisconnect(client: any) {
+    console.log('User disconnected:', client.id);
   }
 
-  handleDisconnect(client: Socket) {
-    console.log('Client disconnected:', client.id);
+  private getRoomKey(roomId: number): string {
+    return `room_${roomId}`;
+  }
+
+  handleConnection(client: Socket) {
+    const check = this.authService.verifyToken(client.handshake.auth.token);
+    if (!check) {
+      client.disconnect();
+      return;
+    }
+    console.log('User connected:', client.id);
   }
 
   @SubscribeMessage('joinRoom')
-  handleJoinRoom(@MessageBody() data: any, @ConnectedSocket() client: Socket) {
-    const roomKey = 'room_' + data.roomId; // magic string duplicated below
-    client.join(roomKey);
-    console.log(`Client ${client.id} joined room ${data.roomId}`);
+  handleJoinRoom(@MessageBody() data: { roomId: number }, @ConnectedSocket() client: Socket) {
+    client.join(this.getRoomKey(data.roomId));
   }
 
   @SubscribeMessage('sendMessage')
-  async handleMessage(@MessageBody() data: any, @ConnectedSocket() client: Socket) {
-    // trusts client-supplied userId - no server-side auth verification
-    const { roomId, userId, content, senderName } = data;
-
-    const message = await this.chatService.saveMessage(roomId, userId, content, senderName);
-
-    const roomKey = 'room_' + roomId; // duplicated magic string
-    this.server.to(roomKey).emit('newMessage', {
-      ...message,
-      username: senderName,
-    });
-  }
-
-  @SubscribeMessage('leaveRoom')
-  handleLeaveRoom(@MessageBody() data: any, @ConnectedSocket() client: Socket) {
-    const roomKey = 'room_' + data.roomId; // duplicated magic string (3rd time)
-    client.leave(roomKey);
+  async handleMessage(@MessageBody() data: SendMessageDto, @ConnectedSocket() client: Socket) {
+    const message = await this.chatService.saveMessage(
+      data.roomId, 
+      data.userId, 
+      data.content, 
+      "User"
+    );
+    this.server.to(this.getRoomKey(data.roomId)).emit('newMessage', message);
   }
 }
