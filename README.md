@@ -101,3 +101,59 @@ The following categories contain real engineering problems. The description tell
 - **Backend:** NestJS, TypeORM, PostgreSQL, Socket.IO, JWT
 - **Frontend:** React 18, React Router v6, Socket.IO Client, Vite, TypeScript
 - **Infrastructure:** Docker, Docker Compose
+
+
+
+
+
+## 🛠 Project Refactoring & Security Improvements
+This project underwent a significant refactoring process to eliminate critical vulnerabilities, optimize performance, and align the codebase with NestJS best practices.
+
+1. Security & Authentication
+Replaced MD5 with Bcrypt:
+
+Reasoning: MD5 is cryptographically broken and vulnerable to rainbow table attacks. Using Bcrypt with an adaptive salting mechanism ensures that user passwords are secure against brute-force attacks.
+
+Environment Configuration (.env):
+
+Reasoning: Sensitive data like JWT secrets and Database credentials were hardcoded. Moving these to .env files using ConfigModule prevents accidental exposure of credentials in version control.
+
+WebSocket Authentication:
+
+Reasoning: The original Gateway allowed any client to connect. I implemented a JWT handshake validation in handleConnection to ensure only authenticated users can access the real-time features.
+
+2. Database & Performance Optimization
+Resolved the N+1 Query Problem:
+
+Reasoning: The getMessages method previously triggered a separate database query for every message to fetch the author's details. By using TypeORM relations (LEFT JOIN), the server now fetches all necessary data in a single efficient SQL query.
+
+Implemented Pagination:
+
+Reasoning: Loading all messages at once can crash the server or the client as the database grows. Adding limit and offset (pagination) ensures the app remains scalable and performant.
+
+3. Data Integrity & Validation
+Shifted from any to DTOs (Data Transfer Objects):
+
+Reasoning: Using any bypasses type safety. Implementing classes like CreateUserDto and SendMessageDto defines a clear contract for the API and prevents "mass assignment" vulnerabilities.
+
+Global ValidationPipe:
+
+Reasoning: Enabled the ValidationPipe to automate incoming data checks. This allows for declarative validation using class-validator decorators (e.g., @MinLength), removing the need for manual if-else checks in controllers.
+
+4. Clean Architecture
+Separation of Concerns:
+
+Reasoning: Database logic was incorrectly placed inside Controllers. I moved all business and persistence logic into Services, leaving Controllers responsible only for routing and request handling.
+
+CORS Hardening:
+
+Reasoning: Changed the CORS policy from a wildcard * to a specific allowed origin. This prevents unauthorized third-party domains from making requests to the backend.
+
+5. WebSocket Logic Refinement
+Centralized Room Management:
+
+Reasoning: Eliminated "magic strings" by creating a helper method for room keys. This ensures consistency and makes the code easier to maintain if the room naming convention changes.
+
+Improved Error Handling:
+
+Reasoning: Removed unimplemented methods and "throw error" stubs in the Gateway that were causing the server to crash whenever a user disconnected.
